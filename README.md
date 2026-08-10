@@ -1,14 +1,14 @@
 <div align="center">
-  <img width="128" height="128" src="frontend/src/assets/favicon.png" alt="XKeen UI">
+  <img width="128" height="128" src="frontend/src/assets/favicon.png" alt="XKeen UI Next">
 
-<h1>XKeen UI</h1>
+<h1>XKeen UI Next</h1>
 
 <p>
   Легковесная панель управления сервисом <b>XKeen</b> для роутеров Keenetic/Netzraze
   <br>
-    <a href="https://github.com/zxc-rv/XKeen-UI/wiki">Wiki (WIP)</a>
+    <a href="https://github.com/vchikalkin/XKeen-UI/wiki">Wiki (WIP)</a>
     ·
-    <a href="https://github.com/zxc-rv/XKeen-UI/wiki/FAQ">FAQ</a>
+    <a href="https://github.com/vchikalkin/XKeen-UI/wiki/FAQ">FAQ</a>
 </p>
   
 ![preview](preview.gif)
@@ -44,13 +44,13 @@
 ### Cтабильная/Latest версия
 
 ```SH
-curl https://raw.githubusercontent.com/zxc-rv/XKeen-UI/main/setup.sh | sh
+curl https://raw.githubusercontent.com/vchikalkin/XKeen-UI/main/setup.sh | sh
 ```
 
 ### Бета/Pre-release версия
 
 ```SH
-curl https://raw.githubusercontent.com/zxc-rv/XKeen-UI/main/setup.sh | sh -s -- beta
+curl https://raw.githubusercontent.com/vchikalkin/XKeen-UI/main/setup.sh | sh -s -- beta
 ```
 
 <br>

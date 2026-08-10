@@ -1,21 +1,21 @@
-# XKeen UI
+# XKeen UI Next
 
 Ультра-лёгкая и быстрая панель управления для [XKeen](https://github.com/jameszeroX/XKeen) — обёртки Xray-core / Mihomo (Clash Meta) для роутеров Keenetic. Один самодостаточный бинарь, минимум зависимостей, LAN-доступ через браузер.
 
-![preview](https://github.com/zxc-rv/XKeen-UI/blob/main/preview.gif?raw=true)
+![preview](https://github.com/vchikalkin/XKeen-UI/blob/main/preview.gif?raw=true)
 
 ## Установка
 
 Стабильная версия:
 
 ```sh
-curl https://raw.githubusercontent.com/zxc-rv/XKeen-UI/main/setup.sh | sh
+curl https://raw.githubusercontent.com/vchikalkin/XKeen-UI/main/setup.sh | sh
 ```
 
 Бета:
 
 ```sh
-curl https://raw.githubusercontent.com/zxc-rv/XKeen-UI/main/setup.sh | sh -s -- beta
+curl https://raw.githubusercontent.com/vchikalkin/XKeen-UI/main/setup.sh | sh -s -- beta
 ```
 
 Скрипт интерактивный, предлагает меню:
@@ -86,5 +86,5 @@ curl https://raw.githubusercontent.com/zxc-rv/XKeen-UI/main/setup.sh | sh -s -- 
 - [Руководство](Guide) — пошаговая настройка _(в разработке)_
 - [FAQ](FAQ) — Часто задаваемые вопросы
 - [Outbound Generator (web)](https://zxc-rv.github.io/XKeen-UI/Outbound_Generator/)
-- [Релизы](https://github.com/zxc-rv/XKeen-UI/releases)
-- [Issues](https://github.com/zxc-rv/XKeen-UI/issues)
+- [Релизы](https://github.com/vchikalkin/XKeen-UI/releases)
+- [Issues](https://github.com/vchikalkin/XKeen-UI/issues)

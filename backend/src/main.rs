@@ -259,7 +259,7 @@ async fn main() {
             .unwrap_or("");
         let os = router_info.as_ref().and_then(|i| i["title"].as_str()).unwrap_or("");
 
-        println!("  {}", format!("XKeen UI {}", VERSION).cyan().bold());
+        println!("  {}", format!("XKeen UI Next {}", VERSION).cyan().bold());
         println!("  {} {}", "Target:".cyan().bold(), env!("BUILD_TARGET"));
         if !device.is_empty() {
             println!("  {} {}", "Device:".cyan().bold(), device);
@@ -289,7 +289,7 @@ async fn main() {
                 let err = std::process::Command::new("sh")
                     .args([
                         "-c",
-                        "curl -L https://raw.githubusercontent.com/zxc-rv/XKeen-UI/main/setup.sh | sh",
+                        "curl -L https://raw.githubusercontent.com/vchikalkin/XKeen-UI/main/setup.sh | sh",
                     ])
                     .exec();
                 eprintln!(" {} {}", " Ошибка запуска setup:".red().bold(), err);
@@ -368,7 +368,7 @@ async fn main() {
     }
 
     setup_process_logging();
-    println!("XKeen UI {} ({})", VERSION, get_arch());
+    println!("XKeen UI Next {} ({})", VERSION, get_arch());
 
     refresh_xray_log_paths();
     let error_log = error_log_path();

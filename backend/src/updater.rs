@@ -42,7 +42,7 @@ pub fn get_repo(core: &str) -> Option<&'static str> {
     match core {
         "xray" => Some("XTLS/Xray-core"),
         "mihomo" => Some("MetaCubeX/mihomo"),
-        "self" => Some("zxc-rv/XKeen-UI"),
+        "self" => Some("vchikalkin/XKeen-UI"),
         _ => None,
     }
 }
@@ -316,7 +316,7 @@ pub async fn post_update(State(state): State<AppState>, Json(req): Json<UpdateRe
         "INFO",
         format!(
             "Запущено обновление {} до {}",
-            if req.core == "self" { "XKeen UI" } else { &core_cap },
+            if req.core == "self" { "XKeen UI Next" } else { &core_cap },
             ver
         ),
     );
@@ -384,7 +384,7 @@ pub async fn post_update(State(state): State<AppState>, Json(req): Json<UpdateRe
         _ = fs::set_permissions(target, std::fs::Permissions::from_mode(0o755)).await;
         _ = tokio::task::spawn_blocking(rustix::fs::sync).await;
 
-        log("INFO", format!("Обновление XKeen UI до {} завершено", ver));
+        log("INFO", format!("Обновление XKeen UI Next до {} завершено", ver));
 
         if Path::new(S99XKEEN_UI).exists() {
             log("INFO", "Перезапуск...".into());

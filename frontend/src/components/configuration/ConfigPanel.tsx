@@ -38,10 +38,14 @@ import * as jsyaml from 'js-yaml'
 import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { apiCall, capitalize, clashFetch, getFileLanguage } from '../../lib/api'
 import { LazyBoundary, lazyLoad, useLazyMount } from '../../lib/loader'
+import { runMassTask, summarizeFanOut, targetLabel } from '../../lib/routers-actions'
+import { LOCAL_ROUTER_ID, isRoutersConfigFile } from '../../lib/routers'
+import { useRoutersStore } from '../../lib/routers-store'
 import { syncClashApiPort, useAppContext, useConnectionsSync, useModalContext, useSettings } from '../../lib/store'
 import type { Config } from '../../lib/types'
 import { cn } from '../../lib/utils'
 import { parse as parseJsonc } from 'jsonc-parser'
+import { MassConfirmDialog, RouterTabsBar } from '../routers/RouterTabsBar'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '../ui/context-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '../ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
@@ -85,6 +89,7 @@ interface Props {
   onOpenGeoScan: () => void
   onOpenBackups: () => void
   onRefreshConfigs: () => Promise<Config[]>
+  onSwitchRouter: (id: string) => void
   editorRef: React.RefObject<CodeMirrorRef | null>
   configActionsRef: React.RefObject<{ switchTab: (index: number) => void; getActiveIndex: () => number }>
 }
@@ -272,25 +277,55 @@ function ConfigTab({ config, currentCore, showToast, onRefreshConfigs, withConte
   )
 }
 
-export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpenBackups, onRefreshConfigs, editorRef, configActionsRef }: Props) {
+export function ConfigPanel({
+  onOpenImport,
+  onOpenTemplate,
+  onOpenGeoScan,
+  onOpenBackups,
+  onRefreshConfigs,
+  onSwitchRouter,
+  editorRef,
+  configActionsRef,
+}: Props) {
   const { state, dispatch, showToast } = useAppContext({ includeConfigs: true })
   const { configs, isConfigsLoading, currentCore, serviceStatus, clashApiPort, clashApiSecret, clashApiUnix } = state
   const guiRouting = useSettings((s) => s.guiRouting)
   const guiLog = useSettings((s) => s.guiLog)
+  const activeRouterId = useRoutersStore((s) => s.activeId)
+  const applyTargets = useRoutersStore((s) => s.applyTargets)
+  const routers = useRoutersStore((s) => s.routers)
+  const isLocalRouter = activeRouterId === LOCAL_ROUTER_ID
+  const activeBaseUrl =
+    activeRouterId === LOCAL_ROUTER_ID
+      ? null
+      : (() => {
+          const r = routers.find((x) => `${x.host}:${x.port}` === activeRouterId)
+          return r ? `http://${r.host}:${r.port}` : null
+        })()
 
   const isRunning = serviceStatus === 'running'
   const isPending = serviceStatus === 'pending'
   const activeClashApiPort = isRunning ? clashApiPort : null
   const activeClashApiUnix = isRunning ? clashApiUnix : null
 
-  useConnectionsSync(currentCore === 'mihomo' ? activeClashApiPort : null, clashApiSecret, serviceStatus, activeClashApiUnix)
+  useConnectionsSync(
+    currentCore === 'mihomo' ? activeClashApiPort : null,
+    clashApiSecret,
+    serviceStatus,
+    activeClashApiUnix,
+    activeBaseUrl
+  )
 
   const [activeConfigFile, setActiveConfigFile] = useState<string>(() => localStorage.getItem('lastSelectedTab') ?? '')
+  const editorConfigs = useMemo(
+    () => configs.filter((c) => !isRoutersConfigFile(c.file)),
+    [configs]
+  )
   const activeConfigIndex = useMemo(() => {
-    if (!configs.length) return 0
-    const idx = configs.findIndex((c) => c.file === activeConfigFile)
+    if (!editorConfigs.length) return 0
+    const idx = editorConfigs.findIndex((c) => c.file === activeConfigFile)
     return idx >= 0 ? idx : 0
-  }, [configs, activeConfigFile])
+  }, [editorConfigs, activeConfigFile])
   const [validationState, setValidationState] = useState<{ isValid: boolean; error?: string } | null>(null)
 
   const [isEditorMounted, setIsEditorMounted] = useState(false)
@@ -303,14 +338,20 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
   const [isProvidersModalOpen, setIsProvidersModalOpen] = useState(false)
   const mountProvidersModal = useLazyMount(isProvidersModalOpen)
   const currentPanel = isRunning ? activePanel : 'config'
+  const [massConfirm, setMassConfirm] = useState<{
+    title: string
+    description: string
+    targets: string[]
+    action: () => void
+  } | null>(null)
 
-  const configsRef = useRef(configs)
+  const configsRef = useRef(editorConfigs)
   const activeIndexRef = useRef(activeConfigIndex)
   const viewStatesRef = useRef<Record<string, any>>({})
 
   useEffect(() => {
-    configsRef.current = configs
-  }, [configs])
+    configsRef.current = editorConfigs
+  }, [editorConfigs])
   useEffect(() => {
     activeIndexRef.current = activeConfigIndex
   }, [activeConfigIndex])
@@ -342,7 +383,8 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [saveViewState])
 
-  const configFilenamesKey = configs.map((c) => c.file).join(',')
+  const configFilenamesKey = editorConfigs.map((c) => c.file).join(',')
+  const storeIndexByFile = useCallback((file: string) => configs.findIndex((c) => c.file === file), [configs])
 
   useEffect(() => {
     if (currentCore !== 'mihomo' || (!activeClashApiPort && !activeClashApiUnix)) return
@@ -376,7 +418,7 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
     [activeClashApiPort, clashApiSecret, activeClashApiUnix, mode]
   )
 
-  const activeConfig = configs[activeConfigIndex]
+  const activeConfig = editorConfigs[activeConfigIndex]
   const fileLanguage = activeConfig ? getFileLanguage(activeConfig.file) : null
   const isJsonOrYaml = fileLanguage === 'json' || fileLanguage === 'yaml'
   const canSave = !!(activeConfig?.isDirty && validationState?.isValid)
@@ -427,9 +469,11 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
       const current = configsRef.current[index]
       if (!current) return
       if (current.content === content && current.isDirty === isDirty) return
-      dispatch({ type: 'UPDATE_CONFIG_DIRTY', index, isDirty, content })
+      const storeIndex = storeIndexByFile(current.file)
+      if (storeIndex < 0) return
+      dispatch({ type: 'UPDATE_CONFIG_DIRTY', index: storeIndex, isDirty, content })
     },
-    [dispatch]
+    [dispatch, storeIndexByFile]
   )
 
   const handleValidationChange = useCallback((isValid: boolean, error?: string) => {
@@ -490,14 +534,101 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
       dispatch({ type: 'SHOW_MODAL', modal: 'showCommentsWarningModal', show: true })
       return
     }
-    const result = await apiCall<{ success: boolean; error?: string }>('PUT', 'configs', { file: cfg.file, content })
+    // Local tab always saves to fork host; remote tab uses active base via apiCall default.
+    const result = await apiCall<{ success: boolean; error?: string }>(
+      'PUT',
+      'configs',
+      { file: cfg.file, content },
+      isLocalRouter ? { baseUrl: null } : undefined
+    )
     if (result.success) {
       editorRef.current.setSavedContent(content)
-      dispatch({ type: 'SAVE_CONFIG', index: activeIndexRef.current, content })
+      const storeIndex = storeIndexByFile(cfg.file)
+      if (storeIndex >= 0) dispatch({ type: 'SAVE_CONFIG', index: storeIndex, content })
       saveViewState(cfg.file, false)
       showToast(`Файл "${cfg.file.split('/').pop()}" сохранен`)
     } else {
       showToast(`Ошибка сохранения: ${result.error}`, 'error')
+    }
+  }
+
+  function buildApplyUrl(file: string, core: string) {
+    let url = 'configs'
+    if (!file.startsWith('/opt/etc/xkeen')) {
+      if (core === 'mihomo') url += '?validate=mihomo'
+      else if (core === 'xray') url += '?validate=xray'
+    }
+    return url
+  }
+
+  function restartActionFor(cfg: Config, content: string) {
+    if (isRoutersConfigFile(cfg.file)) return null
+    const lang = getFileLanguage(cfg.file)
+    const isXkeen = cfg.file.startsWith('/opt/etc/xkeen')
+    return !isXkeen && (lang === 'json' || lang === 'yaml') && !hasCriticalChanges(cfg.savedContent, content, lang)
+      ? 'softRestart'
+      : 'hardRestart'
+  }
+
+  async function applyToHost(baseUrl: string | null, cfg: Config, content: string) {
+    let core = currentCore
+    if (baseUrl) {
+      try {
+        const ctrl = await apiCall<{ success?: boolean; currentCore?: string }>('GET', 'control', undefined, { baseUrl })
+        if (ctrl?.currentCore) core = ctrl.currentCore
+      } catch {
+        /* keep local core */
+      }
+    }
+
+    const saveResult = await apiCall<{ success: boolean; error?: string }>(
+      'PUT',
+      buildApplyUrl(cfg.file, core),
+      { file: cfg.file, content },
+      { baseUrl }
+    )
+    if (!saveResult.success) {
+      throw new Error(
+        saveResult.error === 'Validation failed'
+          ? `валидация ${capitalize(core)}`
+          : saveResult.error || 'ошибка сохранения'
+      )
+    }
+    const action = restartActionFor(cfg, content)
+    if (!action) return
+    const r = await apiCall<{ success: boolean; error?: string }>('POST', 'control', { action, core }, { baseUrl })
+    if (!r?.success) throw new Error(r?.error || 'ошибка перезапуска')
+  }
+
+  async function executeApply(targets: string[], cfg: Config, content: string) {
+    dispatch({ type: 'SET_SERVICE_STATUS', status: 'pending', pendingText: 'Применение...' })
+    const results = await runMassTask(targets, async (_id, baseUrl) => {
+      await applyToHost(baseUrl, cfg, content)
+    })
+
+    const localOk = results.find((r) => r.id === LOCAL_ROUTER_ID)?.ok
+    if (targets.includes(LOCAL_ROUTER_ID) ? localOk : results.some((r) => r.id === activeRouterId && r.ok)) {
+      editorRef.current?.setSavedContent(content)
+      const storeIndex = storeIndexByFile(cfg.file)
+      if (storeIndex >= 0) dispatch({ type: 'SAVE_CONFIG', index: storeIndex, content })
+      saveViewState(cfg.file, false)
+    }
+
+    const summary = summarizeFanOut(results)
+    showToast(
+      {
+        title: summary.fail === 0 ? 'Изменения применены' : 'Применение завершено с ошибками',
+        body: summary.body,
+      },
+      summary.fail === 0 ? 'success' : 'error'
+    )
+
+    if (isLocalRouter || targets.includes(activeRouterId)) {
+      const activeOk = results.find((r) => r.id === activeRouterId)?.ok
+      dispatch({ type: 'SET_SERVICE_STATUS', status: activeOk === false ? 'stopped' : isRunning || activeOk ? 'running' : 'stopped' })
+      if (activeOk !== false) syncClashApiPort(200)
+    } else {
+      dispatch({ type: 'SET_SERVICE_STATUS', status: isRunning ? 'running' : 'stopped' })
     }
   }
 
@@ -513,47 +644,58 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
       return
     }
 
-    dispatch({ type: 'SET_SERVICE_STATUS', status: 'pending', pendingText: 'Применение...' })
-
-    let url = 'configs'
-    if (!cfg.file.startsWith('/opt/etc/xkeen')) {
-      if (currentCore === 'mihomo') {
-        url += '?validate=mihomo'
-      } else if (currentCore === 'xray') {
-        url += '?validate=xray'
-      }
+    if (!isLocalRouter) {
+      await executeApply([activeRouterId], cfg, content)
+      return
     }
 
-    const saveResult = await apiCall<{ success: boolean; error?: string }>('PUT', url, { file: cfg.file, content })
-    if (!saveResult.success) {
-      dispatch({ type: 'SET_SERVICE_STATUS', status: isRunning ? 'running' : 'stopped' })
-      return showToast(
-        saveResult.error === 'Validation failed'
-          ? `Ошибка валидации ${capitalize(currentCore)}: проверьте журнал`
-          : `Ошибка сохранения: ${saveResult.error}`,
-        'error'
-      )
+    const targets = applyTargets.length > 0 ? applyTargets : [LOCAL_ROUTER_ID]
+    const hasRemote = targets.some((t) => t !== LOCAL_ROUTER_ID)
+    if (hasRemote) {
+      setMassConfirm({
+        title: 'Массовое применение',
+        description: 'Конфиг будет сохранён и применён на выбранных роутерах:',
+        targets: targets.map(targetLabel),
+        action: () => void executeApply(targets, cfg, content),
+      })
+      return
     }
 
-    editorRef.current.setSavedContent(content)
-    dispatch({ type: 'SAVE_CONFIG', index: activeIndexRef.current, content })
-    saveViewState(cfg.file, false)
-    dispatch({ type: 'SET_SERVICE_STATUS', status: 'pending', pendingText: 'Перезапуск...' })
-    const lang = getFileLanguage(cfg.file)
-    const r = await apiCall<{ success: boolean; error?: string }>('POST', 'control', {
-      action:
-        !xkeenConfigs.some((c) => c.file === cfg.file) &&
-          (lang === 'json' || lang === 'yaml') &&
-          !hasCriticalChanges(cfg.savedContent, content, lang)
-          ? 'softRestart'
-          : 'hardRestart',
-      core: currentCore,
+    await executeApply(targets, cfg, content)
+  }
+
+  async function executeQuickBackup(targets: string[]) {
+    const results = await runMassTask(targets, async (_id, baseUrl) => {
+      const result = await apiCall<{ success: boolean; error?: string }>('PUT', 'backup', undefined, { baseUrl })
+      if (!result.success) throw new Error(result.error || 'ошибка бэкапа')
     })
-    showToast(r?.success ? 'Изменения применены' : `Ошибка: ${r?.error}`, r?.success ? 'success' : 'error')
-    dispatch({ type: 'SET_SERVICE_STATUS', status: r?.success ? 'running' : 'stopped' })
-    if (r?.success) {
-      syncClashApiPort(200)
+    const summary = summarizeFanOut(results)
+    showToast(
+      {
+        title: summary.fail === 0 ? 'Быстрый бэкап создан' : 'Бэкап завершён с ошибками',
+        body: summary.body,
+      },
+      summary.fail === 0 ? 'success' : 'error'
+    )
+  }
+
+  function quickBackup() {
+    if (!isLocalRouter) {
+      void executeQuickBackup([activeRouterId])
+      return
     }
+    const targets = applyTargets.length > 0 ? applyTargets : [LOCAL_ROUTER_ID]
+    const hasRemote = targets.some((t) => t !== LOCAL_ROUTER_ID)
+    if (hasRemote) {
+      setMassConfirm({
+        title: 'Быстрый бэкап',
+        description: 'Бэкап конфигураций будет создан на выбранных роутерах:',
+        targets: targets.map(targetLabel),
+        action: () => void executeQuickBackup(targets),
+      })
+      return
+    }
+    void executeQuickBackup(targets)
   }
 
   function isGuiActive(cfg: Config) {
@@ -587,8 +729,8 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
 
   const isAnyGui = isRoutingGui || isLogGui
 
-  const coreConfigs = configs.filter((c) => !c.file.startsWith('/opt/etc/xkeen'))
-  const xkeenConfigs = configs.filter((c) => c.file.startsWith('/opt/etc/xkeen'))
+  const coreConfigs = editorConfigs.filter((c) => !c.file.startsWith('/opt/etc/xkeen'))
+  const xkeenConfigs = editorConfigs.filter((c) => c.file.startsWith('/opt/etc/xkeen'))
 
   const isMihomo = currentCore === 'mihomo' && (!!activeClashApiPort || !!activeClashApiUnix)
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
@@ -603,7 +745,10 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
     <TooltipProvider delayDuration={500}>
       <>
         <div className="border-border bg-card flex flex-col overflow-hidden rounded-xl border md:min-h-0 md:flex-1">
-          <div className={cn('flex shrink-0 flex-col gap-2 px-3 pt-3 sm:px-4 sm:pt-4 md:flex-row md:items-start')}>
+          <div className="shrink-0 px-3 pt-3 sm:px-4 sm:pt-4">
+            <RouterTabsBar onSwitch={onSwitchRouter} disabled={isPending} />
+          </div>
+          <div className={cn('flex shrink-0 flex-col gap-2 px-3 pt-2 sm:px-4 sm:pt-3 md:flex-row md:items-start')}>
             <div className="flex min-w-0 shrink-0 items-center gap-2">
               {isMihomo ? (
                 <div className="min-w-0 scrollbar-none overflow-x-auto md:overflow-x-visible [&::-webkit-scrollbar]:hidden">
@@ -692,7 +837,7 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
                   <Tabs
                     value={activeConfig?.file || ''}
                     onValueChange={(value) => {
-                      const index = configs.findIndex((c) => c.file === value)
+                      const index = editorConfigs.findIndex((c) => c.file === value)
                       if (index >= 0) switchTab(index)
                     }}
                     className="flex-row!"
@@ -852,6 +997,9 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
                           <DropdownMenuItem onClick={onOpenBackups}>
                             <IconBox /> Бэкапы конфигураций
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={quickBackup}>
+                            <IconBox /> Быстрый бэкап
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={onOpenGeoScan}>
                             <IconSearch /> Скан геофайлов
                           </DropdownMenuItem>
@@ -901,6 +1049,16 @@ export function ConfigPanel({ onOpenImport, onOpenTemplate, onOpenGeoScan, onOpe
           </LazyBoundary>
         )}
         <BackupsModalContainer onRefreshConfigs={refreshConfigsAndEditor} />
+        {massConfirm && (
+          <MassConfirmDialog
+            open={!!massConfirm}
+            onOpenChange={(open) => !open && setMassConfirm(null)}
+            title={massConfirm.title}
+            description={massConfirm.description}
+            targets={massConfirm.targets}
+            onConfirm={massConfirm.action}
+          />
+        )}
       </>
     </TooltipProvider>
   )

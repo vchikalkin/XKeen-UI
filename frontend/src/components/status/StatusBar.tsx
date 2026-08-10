@@ -175,7 +175,7 @@ export function StatusBar({
 
         <div className="order-1 flex items-center justify-center md:absolute md:left-1/2 md:order-2 md:-translate-x-1/2">
           <a
-            href="https://github.com/zxc-rv/XKeen-UI"
+            href="https://github.com/vchikalkin/XKeen-UI"
             target="_blank"
             rel="noreferrer"
             className="rounded-md transition-opacity hover:opacity-85"
@@ -183,7 +183,7 @@ export function StatusBar({
             <span
               className="text-[28px] font-semibold bg-linear-to-r from-[#00D3F2] via-[#2B7FFF] to-[#155DFC] bg-clip-text text-transparent"
             >
-              XKeen UI
+              XKeen UI Next
             </span>
           </a>
         </div>
@@ -229,7 +229,7 @@ export function StatusBar({
                   {version}
                 </Button>
               } />
-              <TooltipContent>{isOutdatedUI ? 'Доступно обновление' : 'Версия XKeen UI'}</TooltipContent>
+              <TooltipContent>{isOutdatedUI ? 'Доступно обновление' : 'Версия XKeen UI Next'}</TooltipContent>
             </Tooltip>
           )}
           {isConfigsLoading || !version ? (

@@ -50,8 +50,8 @@ export function LoginForm({ mode, onAuth }: LoginFormProps) {
       <div className="bg-card ring-foreground/10 mx-auto w-full max-w-md space-y-6 rounded-2xl border p-6 shadow-lg">
         <div className="space-y-2 text-left">
           <div className="flex items-center gap-3">
-            <img src={faviconUrl} alt="XKeen UI" className="size-9" />
-            <h1 className="text-3xl font-semibold">XKeen UI</h1>
+            <img src={faviconUrl} alt="XKeen UI Next" className="size-9" />
+            <h1 className="text-3xl font-semibold">XKeen UI Next</h1>
           </div>
           <p className="text-muted-foreground pt-1 text-sm text-pretty">
             {mode === 'setup' ? 'Установите пароль для доступа к панели' : 'Введите пароль для входа'}
