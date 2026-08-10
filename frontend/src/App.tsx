@@ -8,7 +8,7 @@ import { StatusBar } from './components/status/StatusBar'
 import { Toast } from './components/ui/toast'
 import { apiCall, capitalize } from './lib/api'
 import { LazyBoundary, lazyLoad, useLazyMount } from './lib/loader'
-import { ONLINE_PING_INTERVAL_MS, LOCAL_ROUTER_ID } from './lib/routers'
+import { ONLINE_PING_INTERVAL_MS, LOCAL_ROUTER_ID, routerId } from './lib/routers'
 import { RouterTabsCard } from './components/routers/RouterTabsBar'
 import { applyRoutersFromConfigs, refreshAllOnline } from './lib/routers-actions'
 import { useRoutersStore } from './lib/routers-store'
@@ -37,6 +37,26 @@ function useThemeMode(theme: ThemeMode) {
     media.addEventListener('change', syncTheme)
     return () => media.removeEventListener('change', syncTheme)
   }, [theme])
+}
+
+function settingsFromApi(data: any) {
+  return {
+    autoApply: data.gui.auto_apply,
+    guiRouting: data.gui.routing,
+    guiLog: data.gui.log,
+    autoCheckUI: data.updater.auto_check_ui ?? true,
+    autoCheckCore: data.updater.auto_check_core ?? true,
+    backupCore: data.updater.backup_core,
+    githubProxies: data.updater.github_proxy || [],
+    pingTestUrl: data.clash_api?.ping_url ?? DEFAULT_PING_TEST_URL,
+    pingTestTimeout: data.clash_api?.ping_timeout ?? DEFAULT_PING_TEST_TIMEOUT,
+    showSourceName: data.clash_api?.show_source_name ?? false,
+    hideUnavailableProxies: data.clash_api?.hide_unavailable_proxies ?? false,
+    hideUnavailableProxiesCounter: data.clash_api?.hide_unavailable_proxies_counter ?? 3,
+    proxySortOrder: data.clash_api?.proxy_sort_order ?? 'default',
+    timezone: data.log.timezone,
+    authEnabled: !!data.auth?.enabled,
+  }
 }
 
 interface ModalManagerProps {
@@ -228,35 +248,19 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     [dispatch, showToast]
   )
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      const data = await apiCall<any>('GET', 'settings')
-      if (data.success)
-        dispatch({
-          type: 'SET_SETTINGS',
-          settings: {
-            autoApply: data.gui.auto_apply,
-            guiRouting: data.gui.routing,
-            guiLog: data.gui.log,
-            autoCheckUI: data.updater.auto_check_ui ?? true,
-            autoCheckCore: data.updater.auto_check_core ?? true,
-            backupCore: data.updater.backup_core,
-            githubProxies: data.updater.github_proxy || [],
-            pingTestUrl: data.clash_api?.ping_url ?? DEFAULT_PING_TEST_URL,
-            pingTestTimeout: data.clash_api?.ping_timeout ?? DEFAULT_PING_TEST_TIMEOUT,
-            showSourceName: data.clash_api?.show_source_name ?? false,
-            hideUnavailableProxies: data.clash_api?.hide_unavailable_proxies ?? false,
-            hideUnavailableProxiesCounter: data.clash_api?.hide_unavailable_proxies_counter ?? 3,
-            proxySortOrder: data.clash_api?.proxy_sort_order ?? 'default',
-            timezone: data.log.timezone,
-            authEnabled: !!data.auth?.enabled,
-          },
-        })
-    }
+  const loadSettings = useCallback(
+    async (baseUrl?: string | null) => {
+      const resolvedBase = baseUrl === undefined ? useRoutersStore.getState().getActiveBaseUrl() : baseUrl
+      const data = await apiCall<any>('GET', 'settings', undefined, { baseUrl: resolvedBase })
+      if (data.success) dispatch({ type: 'SET_SETTINGS', settings: settingsFromApi(data) })
+    },
+    [dispatch]
+  )
 
+  useEffect(() => {
     const init = async () => {
       try {
-        await loadSettings()
+        await loadSettings(null)
         const currentCore = await checkStatus(null)
         await loadConfigs(currentCore ?? undefined, false, false, null)
         checkVersion(true)
@@ -266,13 +270,17 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     }
 
     init()
-  }, [checkStatus, loadConfigs, dispatch, showToast, checkVersion])
+  }, [checkStatus, loadConfigs, loadSettings, dispatch, showToast, checkVersion])
 
+  // Ping immediately when routers.lst appears (first mount often has an empty list).
+  const onlineTargetsKey = useRoutersStore((s) =>
+    [LOCAL_ROUTER_ID, ...s.routers.map(routerId)].join('|')
+  )
   useEffect(() => {
     void refreshAllOnline()
     const timer = setInterval(() => void refreshAllOnline(), ONLINE_PING_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [])
+  }, [onlineTargetsKey])
 
   const switchRouter = useCallback(
     async (id: string) => {
@@ -290,7 +298,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         const currentCore = await checkStatus(remoteBase)
         if (currentCore) await loadConfigs(currentCore, false, true, remoteBase)
         else dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
-        await checkVersion(false, remoteBase)
+        await Promise.all([checkVersion(false, remoteBase), loadSettings(remoteBase)])
       } catch (e: any) {
         dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
         showToast(e?.message || 'Не удалось подключиться к роутеру', 'error')
@@ -298,7 +306,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         useRoutersStore.getState().setSwitching(false)
       }
     },
-    [checkStatus, checkVersion, dispatch, loadConfigs, showToast]
+    [checkStatus, checkVersion, dispatch, loadConfigs, loadSettings, showToast]
   )
 
   const switchCore = useCallback(
@@ -473,12 +481,21 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
   )
 
   return (
-    <div className="bg-muted dark:bg-background flex min-h-dvh flex-col">
-      <main className="flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-3 px-3 py-3">
+    <div className="bg-muted dark:bg-background flex min-h-dvh flex-col md:h-dvh md:max-h-dvh md:overflow-hidden">
+      <main className="flex min-h-0 flex-1 flex-col">
+        <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-3 px-3 py-3">
           <StatusBar
             onOpenCoreManage={() => openModal('showCoreManageModal')}
-            onOpenSettings={() => openModal('showSettingsModal')}
+            onOpenSettings={() => {
+              void (async () => {
+                try {
+                  await loadSettings()
+                } catch {
+                  showToast('Не удалось загрузить настройки', 'error')
+                }
+                openModal('showSettingsModal')
+              })()
+            }}
             onRefreshStatus={() => void checkStatus()}
             onOpenUpdate={(core: string) => {
               dispatch({ type: 'SET_UPDATE_MODAL_CORE', core })
@@ -546,7 +563,14 @@ export default function App() {
           <Toast />
         </motion.div>
       ) : (
-        <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
+        <motion.div
+          key="app"
+          className="md:h-dvh md:max-h-dvh md:overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+        >
           <AppContent onLogout={handleLogout} />
         </motion.div>
       )}
