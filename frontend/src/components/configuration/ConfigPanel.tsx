@@ -292,6 +292,7 @@ export function ConfigPanel({
   const guiRouting = useSettings((s) => s.guiRouting)
   const guiLog = useSettings((s) => s.guiLog)
   const activeRouterId = useRoutersStore((s) => s.activeId)
+  const isRouterSwitching = useRoutersStore((s) => s.isSwitching)
   const applyTargets = useRoutersStore((s) => s.applyTargets)
   const routers = useRoutersStore((s) => s.routers)
   const isLocalRouter = activeRouterId === LOCAL_ROUTER_ID
@@ -305,14 +306,15 @@ export function ConfigPanel({
 
   const isRunning = serviceStatus === 'running'
   const isPending = serviceStatus === 'pending'
-  const activeClashApiPort = isRunning ? clashApiPort : null
-  const activeClashApiUnix = isRunning ? clashApiUnix : null
+  const isStopped = serviceStatus === 'stopped' && !isRouterSwitching
+  const activeClashApiPort = isRunning || isRouterSwitching ? clashApiPort : null
+  const activeClashApiUnix = isRunning || isRouterSwitching ? clashApiUnix : null
 
   useConnectionsSync(
-    currentCore === 'mihomo' ? activeClashApiPort : null,
+    isRouterSwitching || currentCore !== 'mihomo' ? null : clashApiPort,
     clashApiSecret,
-    serviceStatus,
-    activeClashApiUnix,
+    isRouterSwitching ? 'stopped' : serviceStatus,
+    clashApiUnix,
     activeBaseUrl
   )
 
@@ -337,7 +339,7 @@ export function ConfigPanel({
   const [providersModalKind, setProvidersModalKind] = useState<ProvidersModalKind | null>(null)
   const [isProvidersModalOpen, setIsProvidersModalOpen] = useState(false)
   const mountProvidersModal = useLazyMount(isProvidersModalOpen)
-  const currentPanel = isRunning ? activePanel : 'config'
+  const currentPanel = isStopped ? 'config' : activePanel
   const [massConfirm, setMassConfirm] = useState<{
     title: string
     description: string
@@ -732,7 +734,7 @@ export function ConfigPanel({
   const coreConfigs = editorConfigs.filter((c) => !c.file.startsWith('/opt/etc/xkeen'))
   const xkeenConfigs = editorConfigs.filter((c) => c.file.startsWith('/opt/etc/xkeen'))
 
-  const isMihomo = currentCore === 'mihomo' && (!!activeClashApiPort || !!activeClashApiUnix)
+  const isMihomo = currentCore === 'mihomo'
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   const usefulLinks = [
     { title: 'Инструкция XKeen', url: 'https://github.com/Corvus-Malus/XKeen/' },
@@ -746,7 +748,7 @@ export function ConfigPanel({
       <>
         <div className="border-border bg-card flex flex-col overflow-hidden rounded-xl border md:min-h-0 md:flex-1">
           <div className="shrink-0 px-3 pt-3 sm:px-4 sm:pt-4">
-            <RouterTabsBar onSwitch={onSwitchRouter} disabled={isPending} />
+            <RouterTabsBar onSwitch={onSwitchRouter} disabled={isPending || isRouterSwitching} />
           </div>
           <div className={cn('flex shrink-0 flex-col gap-2 px-3 pt-2 sm:px-4 sm:pt-3 md:flex-row md:items-start')}>
             <div className="flex min-w-0 shrink-0 items-center gap-2">
@@ -762,10 +764,10 @@ export function ConfigPanel({
                     className="w-max flex-row!"
                   >
                     <TabsList variant="line" className="mb-2 w-max shrink-0 gap-3 p-0 whitespace-nowrap md:mb-0">
-                      <TabsTrigger value="selectors" className="p-0 text-sm font-semibold md:text-lg" disabled={!isRunning}>
+                      <TabsTrigger value="selectors" className="p-0 text-sm font-semibold md:text-lg" disabled={isStopped}>
                         Селекторы
                       </TabsTrigger>
-                      <TabsTrigger value="connections" className="p-0 text-sm font-semibold md:text-lg" disabled={!isRunning}>
+                      <TabsTrigger value="connections" className="p-0 text-sm font-semibold md:text-lg" disabled={isStopped}>
                         Соединения
                       </TabsTrigger>
                       <TabsTrigger value="config" className="p-0 text-sm font-semibold md:text-lg">
@@ -876,6 +878,9 @@ export function ConfigPanel({
           </div>
 
           <div className="relative min-h-175! md:min-h-0 md:flex-1">
+            {isRouterSwitching && (
+              <div className="bg-background/25 pointer-events-none absolute inset-0 z-20" aria-hidden />
+            )}
             {isEditorMounted && activeConfig && isRoutingGui && (
               <GuiRouting editorRef={editorRef} configs={configs} activeConfigIndex={activeConfigIndex} />
             )}

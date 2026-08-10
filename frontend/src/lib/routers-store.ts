@@ -7,8 +7,10 @@ interface RoutersState {
   applyTargets: string[]
   online: Record<string, boolean | null>
   commandStatus: Record<string, RouterCommandState>
+  isSwitching: boolean
   setRouters: (routers: RemoteRouter[]) => void
   setActiveId: (id: string) => void
+  setSwitching: (switching: boolean) => void
   toggleApplyTarget: (id: string) => void
   setApplyTargets: (ids: string[]) => void
   setOnline: (id: string, online: boolean | null) => void
@@ -24,6 +26,7 @@ export const useRoutersStore = create<RoutersState>((set, get) => ({
   applyTargets: [LOCAL_ROUTER_ID],
   online: { [LOCAL_ROUTER_ID]: true },
   commandStatus: {},
+  isSwitching: false,
 
   setRouters: (routers) =>
     set((state) => {
@@ -42,6 +45,8 @@ export const useRoutersStore = create<RoutersState>((set, get) => ({
       activeId: id,
       applyTargets: id === LOCAL_ROUTER_ID ? [LOCAL_ROUTER_ID] : [id],
     }),
+
+  setSwitching: (isSwitching) => set({ isSwitching }),
 
   toggleApplyTarget: (id) =>
     set((state) => {

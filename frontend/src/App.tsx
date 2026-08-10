@@ -154,8 +154,8 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
           dispatch({ type: 'SET_DASHBOARD_PORT', port, secret, unix } as any)
           const appState = getAppState()
           const activeCores = core ?? appState.currentCore
-          if ((port || unix) && activeCores === 'mihomo' && !skipProxies && appState.serviceStatus === 'running') {
-            fetchClashProxies(port ?? '', secret, false, unix, resolvedBase)
+          if ((port || unix) && activeCores === 'mihomo' && !skipProxies) {
+            fetchClashProxies(port ?? '', secret, silent, unix, resolvedBase)
           }
           return configs
         } else {
@@ -276,26 +276,26 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
 
   const switchRouter = useCallback(
     async (id: string) => {
-      const { activeId, setActiveId } = useRoutersStore.getState()
+      const { activeId, setActiveId, setSwitching } = useRoutersStore.getState()
       if (id === activeId) return
 
       const dirty = getAppState().configs.some((c) => c.isDirty)
       if (dirty && !confirm('Несохранённые изменения будут потеряны. Переключить роутер?')) return
 
+      setSwitching(true)
       setActiveId(id)
-      dispatch({ type: 'SET_CONFIGS', configs: [] })
-      dispatch({ type: 'SET_SERVICE_STATUS', status: 'loading', pendingText: 'Загрузка...' })
-      dispatch({ type: 'SET_CONNECTIONS', connections: [], wsConnected: false })
 
       try {
         const remoteBase = id === LOCAL_ROUTER_ID ? null : useRoutersStore.getState().getBaseUrlForId(id)
         const currentCore = await checkStatus(remoteBase)
-        if (currentCore) await loadConfigs(currentCore, false, false, remoteBase)
+        if (currentCore) await loadConfigs(currentCore, false, true, remoteBase)
         else dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
         if (id === LOCAL_ROUTER_ID) void checkVersion(false)
       } catch (e: any) {
         dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
         showToast(e?.message || 'Не удалось подключиться к роутеру', 'error')
+      } finally {
+        useRoutersStore.getState().setSwitching(false)
       }
     },
     [checkStatus, checkVersion, dispatch, loadConfigs, showToast]
