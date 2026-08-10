@@ -173,16 +173,17 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
   )
 
   const checkVersion = useCallback(
-    async (showUpdateToast = false) => {
+    async (showUpdateToast = false, baseUrl?: string | null) => {
       try {
-        const data = await apiCall<any>('GET', 'version')
+        const resolvedBase = baseUrl === undefined ? useRoutersStore.getState().getActiveBaseUrl() : baseUrl
+        const data = await apiCall<any>('GET', 'version', undefined, { baseUrl: resolvedBase })
         if (!data.success) return
 
         const ui = data['xkeen-ui']
         if (!ui) return
 
         let isOutdatedCore = false
-        const coreVersions: Record<string, string> = {}
+        const coreVersions: Record<string, string> = { xray: '', mihomo: '' }
         for (const core of ['mihomo', 'xray']) {
           if (data[core]?.version) {
             coreVersions[core] = data[core].version
@@ -197,15 +198,13 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
           isOutdatedCore,
         })
 
-        if (Object.keys(coreVersions).length > 0) {
-          const appState = getAppState()
-          dispatch({
-            type: 'SET_CORE_INFO',
-            currentCore: appState.currentCore,
-            coreVersions: { ...appState.coreVersions, ...coreVersions },
-            availableCores: appState.availableCores,
-          })
-        }
+        const appState = getAppState()
+        dispatch({
+          type: 'SET_CORE_INFO',
+          currentCore: appState.currentCore,
+          coreVersions,
+          availableCores: appState.availableCores,
+        })
 
         if (!showUpdateToast) return
         if (ui.show_toast) showToast({ title: 'Доступно обновление', body: 'Доступна новая версия XKeen UI Next', persistent: true, id: 'update-ui', ...(ui.link && { action: { url: ui.link } }) })
@@ -291,7 +290,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         const currentCore = await checkStatus(remoteBase)
         if (currentCore) await loadConfigs(currentCore, false, true, remoteBase)
         else dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
-        if (id === LOCAL_ROUTER_ID) void checkVersion(false)
+        await checkVersion(false, remoteBase)
       } catch (e: any) {
         dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
         showToast(e?.message || 'Не удалось подключиться к роутеру', 'error')
