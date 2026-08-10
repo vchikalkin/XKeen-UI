@@ -10,7 +10,7 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { IconPlus, IconX } from '@tabler/icons-react'
+import { IconChevronLeft, IconChevronRight, IconPlus, IconX } from '@tabler/icons-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ensureRoutersFile, persistRouters } from '../../lib/routers-actions'
 import {
@@ -69,6 +69,31 @@ export function RouterTabsBar({
   const [port, setPort] = useState(String(DEFAULT_ROUTER_PORT))
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateScrollEdges = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    setCanScrollLeft(scrollLeft > 1)
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    updateScrollEdges()
+    const onScroll = () => updateScrollEdges()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    const ro = new ResizeObserver(updateScrollEdges)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      ro.disconnect()
+    }
+  }, [updateScrollEdges, routers.length])
 
   const onWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
     const el = scrollRef.current
@@ -77,6 +102,12 @@ export function RouterTabsBar({
       el.scrollLeft += e.deltaY
       e.preventDefault()
     }
+  }, [])
+
+  const scrollByDir = useCallback((dir: -1 | 1) => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollBy({ left: dir * Math.max(120, el.clientWidth * 0.6), behavior: 'smooth' })
   }, [])
 
   async function addRouter() {
@@ -123,7 +154,20 @@ export function RouterTabsBar({
 
   return (
     <>
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1">
+        {(canScrollLeft || canScrollRight) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0"
+            disabled={!canScrollLeft}
+            onClick={() => scrollByDir(-1)}
+            aria-label="Прокрутить вкладки влево"
+          >
+            <IconChevronLeft className="size-4" />
+          </Button>
+        )}
         <div
           ref={scrollRef}
           onWheel={onWheel}
@@ -161,6 +205,19 @@ export function RouterTabsBar({
             </TabsList>
           </Tabs>
         </div>
+        {(canScrollLeft || canScrollRight) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="shrink-0"
+            disabled={!canScrollRight}
+            onClick={() => scrollByDir(1)}
+            aria-label="Прокрутить вкладки вправо"
+          >
+            <IconChevronRight className="size-4" />
+          </Button>
+        )}
         <Tooltip>
           <TooltipTrigger
             render={
