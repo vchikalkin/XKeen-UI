@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { IconChevronDown, IconFile, IconFilter, IconMaximize, IconMinimize, IconTrash, IconX } from '@tabler/icons-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
+import { tabBarSectionClass } from '../routers/RouterTabsBar'
 import { LOCAL_ROUTER_ID, findRouter, routerBaseUrl } from '../../lib/routers'
 import { useRoutersStore } from '../../lib/routers-store'
 import { useSettings } from '../../lib/store'
@@ -318,16 +319,17 @@ export function LogPanel() {
             onValueChange={(v) => setPanelTab(v as 'journal' | 'routers')}
             className="flex min-h-0 flex-1 flex-col gap-0"
           >
-            <div className="flex shrink-0 flex-col justify-between gap-3 px-4 pt-4 sm:flex-row sm:items-center">
-              <TabsList variant="line" className="h-auto gap-3 bg-transparent p-0">
-                <TabsTrigger value="journal" className="p-0 text-lg font-semibold">
-                  Журнал
-                </TabsTrigger>
-                <TabsTrigger value="routers" className="p-0 text-lg font-semibold">
-                  Роутеры
-                </TabsTrigger>
-              </TabsList>
-              {panelTab === 'journal' && (
+            <div className={tabBarSectionClass}>
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <TabsList variant="line" className="h-auto gap-3 bg-transparent p-0">
+                  <TabsTrigger value="journal" className="p-0 text-lg font-semibold">
+                    Журнал
+                  </TabsTrigger>
+                  <TabsTrigger value="routers" className="p-0 text-lg font-semibold">
+                    Роутеры
+                  </TabsTrigger>
+                </TabsList>
+                {panelTab === 'journal' && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <div className="relative flex min-w-30 flex-1 items-center sm:flex-none">
                     <InputGroup className="w-40">
@@ -397,6 +399,7 @@ export function LogPanel() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
             <TabsContent value="journal" className="relative mt-0 min-h-0 flex-1">

@@ -9,6 +9,7 @@ import { Toast } from './components/ui/toast'
 import { apiCall, capitalize } from './lib/api'
 import { LazyBoundary, lazyLoad, useLazyMount } from './lib/loader'
 import { ONLINE_PING_INTERVAL_MS, LOCAL_ROUTER_ID } from './lib/routers'
+import { RouterTabsCard } from './components/routers/RouterTabsBar'
 import { applyRoutersFromConfigs, refreshAllOnline } from './lib/routers-actions'
 import { useRoutersStore } from './lib/routers-store'
 import { fetchClashProxies, getAppState, syncClashApiPort, useAppActions, useModalContext, useSettings } from './lib/store'
@@ -486,6 +487,7 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
             }}
             onLogout={logout}
           />
+          <RouterTabsCard onSwitch={switchRouter} />
           <ConfigPanel
             editorRef={editorRef}
             configActionsRef={configActionsRef}
@@ -494,7 +496,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
             onOpenGeoScan={() => openModal('showGeoScanModal')}
             onOpenBackups={() => openModal('showBackupsModal')}
             onRefreshConfigs={() => loadConfigs(undefined, false, true)}
-            onSwitchRouter={switchRouter}
           />
           <LogPanel />
         </div>

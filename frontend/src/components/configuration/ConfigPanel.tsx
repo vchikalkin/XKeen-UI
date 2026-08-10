@@ -45,7 +45,7 @@ import { syncClashApiPort, useAppContext, useConnectionsSync, useModalContext, u
 import type { Config } from '../../lib/types'
 import { cn } from '../../lib/utils'
 import { parse as parseJsonc } from 'jsonc-parser'
-import { MassConfirmDialog, RouterTabsBar } from '../routers/RouterTabsBar'
+import { MassConfirmDialog, tabBarSectionClass } from '../routers/RouterTabsBar'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '../ui/context-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '../ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
@@ -89,7 +89,6 @@ interface Props {
   onOpenGeoScan: () => void
   onOpenBackups: () => void
   onRefreshConfigs: () => Promise<Config[]>
-  onSwitchRouter: (id: string) => void
   editorRef: React.RefObject<CodeMirrorRef | null>
   configActionsRef: React.RefObject<{ switchTab: (index: number) => void; getActiveIndex: () => number }>
 }
@@ -283,7 +282,6 @@ export function ConfigPanel({
   onOpenGeoScan,
   onOpenBackups,
   onRefreshConfigs,
-  onSwitchRouter,
   editorRef,
   configActionsRef,
 }: Props) {
@@ -747,88 +745,89 @@ export function ConfigPanel({
     <TooltipProvider delayDuration={500}>
       <>
         <div className="border-border bg-card flex flex-col overflow-hidden rounded-xl border md:min-h-0 md:flex-1">
-          <div className="shrink-0 px-3 pt-3 sm:px-4 sm:pt-4">
-            <RouterTabsBar onSwitch={onSwitchRouter} disabled={isPending || isRouterSwitching} />
-          </div>
-          <div className={cn('flex shrink-0 flex-col gap-2 px-3 pt-2 sm:px-4 sm:pt-3 md:flex-row md:items-start')}>
-            <div className="flex min-w-0 shrink-0 items-center gap-2">
-              {isMihomo ? (
-                <div className="min-w-0 scrollbar-none overflow-x-auto md:overflow-x-visible [&::-webkit-scrollbar]:hidden">
-                  <Tabs
-                    value={currentPanel}
-                    onValueChange={(value) => {
-                      const panel = value as 'config' | 'selectors' | 'connections'
-                      setActivePanel(panel)
-                      setMountedPanels((prev) => (prev.has(panel) ? prev : new Set([...prev, panel])))
-                    }}
-                    className="w-max flex-row!"
-                  >
-                    <TabsList variant="line" className="mb-2 w-max shrink-0 gap-3 p-0 whitespace-nowrap md:mb-0">
-                      <TabsTrigger value="selectors" className="p-0 text-sm font-semibold md:text-lg" disabled={isStopped}>
-                        Селекторы
-                      </TabsTrigger>
-                      <TabsTrigger value="connections" className="p-0 text-sm font-semibold md:text-lg" disabled={isStopped}>
-                        Соединения
-                      </TabsTrigger>
-                      <TabsTrigger value="config" className="p-0 text-sm font-semibold md:text-lg">
-                        Конфигурация
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
+          <div className={tabBarSectionClass}>
+            <div className="flex flex-col gap-2 md:flex-row md:items-start">
+              <div className="flex min-w-0 shrink-0 items-center gap-2">
+                {isMihomo ? (
+                  <div className="min-w-0 scrollbar-none overflow-x-auto md:overflow-x-visible [&::-webkit-scrollbar]:hidden">
+                    <Tabs
+                      value={currentPanel}
+                      onValueChange={(value) => {
+                        const panel = value as 'config' | 'selectors' | 'connections'
+                        setActivePanel(panel)
+                        setMountedPanels((prev) => (prev.has(panel) ? prev : new Set([...prev, panel])))
+                      }}
+                      className="w-max flex-row!"
+                    >
+                      <TabsList variant="line" className="mb-0 w-max shrink-0 gap-3 p-0 whitespace-nowrap">
+                        <TabsTrigger value="selectors" className="p-0 text-sm font-semibold md:text-lg" disabled={isStopped}>
+                          Селекторы
+                        </TabsTrigger>
+                        <TabsTrigger value="connections" className="p-0 text-sm font-semibold md:text-lg" disabled={isStopped}>
+                          Соединения
+                        </TabsTrigger>
+                        <TabsTrigger value="config" className="p-0 text-sm font-semibold md:text-lg">
+                          Конфигурация
+                        </TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                ) : (
+                  <h2 className="shrink-0 text-lg font-semibold select-none">Конфигурация</h2>
+                )}
+              </div>
+
+              {isMihomo && currentPanel === 'connections' && (
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-muted-foreground text-xs">Режим маршрутизации</span>
+                  <Select value={mode} items={{ direct: 'DIRECT', rule: 'RULE', global: 'GLOBAL' }} onValueChange={(value) => changeMode(value as ClashMode)}>
+                    <SelectTrigger className="w-30">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="direct">DIRECT</SelectItem>
+                        <SelectItem value="rule">RULE</SelectItem>
+                        <SelectItem value="global">GLOBAL</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : (
-                <h2 className="shrink-0 text-lg font-semibold select-none">Конфигурация</h2>
+              )}
+
+              {isMihomo && currentPanel === 'selectors' && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <Button variant="outline" className="text-[13px]" onClick={() => openProvidersModal('rules')}>
+                    <IconListDetails data-icon="inline-start" />
+                    Пров. правил
+                  </Button>
+                  <Button variant="outline" className="text-[13px]" onClick={() => openProvidersModal('proxies')}>
+                    <IconListDetails data-icon="inline-start" />
+                    Пров. прокси
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger render={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label={allSelectorsCollapsed ? 'Развернуть все селекторы' : 'Свернуть все селекторы'}
+                        onClick={() =>
+                          window.dispatchEvent(new CustomEvent(TOGGLE_ALL_SELECTORS_EVENT, { detail: { collapsed: !allSelectorsCollapsed } }))
+                        }
+                      >
+                        {allSelectorsCollapsed ? <IconChevronDown /> : <IconChevronUp />}
+                      </Button>
+                    } />
+                    <TooltipContent>{allSelectorsCollapsed ? 'Развернуть все' : 'Свернуть все'}</TooltipContent>
+                  </Tooltip>
+                </div>
               )}
             </div>
+          </div>
 
-            {isMihomo && currentPanel === 'connections' && (
-              <div className="ml-auto flex items-center gap-2">
-                <span className="text-muted-foreground text-xs">Режим маршрутизации</span>
-                <Select value={mode} items={{ direct: 'DIRECT', rule: 'RULE', global: 'GLOBAL' }} onValueChange={(value) => changeMode(value as ClashMode)}>
-                  <SelectTrigger className="w-30">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="direct">DIRECT</SelectItem>
-                      <SelectItem value="rule">RULE</SelectItem>
-                      <SelectItem value="global">GLOBAL</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {isMihomo && currentPanel === 'selectors' && (
-              <div className="ml-auto flex items-center gap-1.5">
-                <Button variant="outline" className="text-[13px]" onClick={() => openProvidersModal('rules')}>
-                  <IconListDetails data-icon="inline-start" />
-                  Пров. правил
-                </Button>
-                <Button variant="outline" className="text-[13px]" onClick={() => openProvidersModal('proxies')}>
-                  <IconListDetails data-icon="inline-start" />
-                  Пров. прокси
-                </Button>
-                <Tooltip>
-                  <TooltipTrigger render={
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      aria-label={allSelectorsCollapsed ? 'Развернуть все селекторы' : 'Свернуть все селекторы'}
-                      onClick={() =>
-                        window.dispatchEvent(new CustomEvent(TOGGLE_ALL_SELECTORS_EVENT, { detail: { collapsed: !allSelectorsCollapsed } }))
-                      }
-                    >
-                      {allSelectorsCollapsed ? <IconChevronDown /> : <IconChevronUp />}
-                    </Button>
-                  } />
-                  <TooltipContent>{allSelectorsCollapsed ? 'Развернуть все' : 'Свернуть все'}</TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-
-            {(!isMihomo || currentPanel === 'config') && (
-              <div className="scrollbar-none overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] md:ml-auto [&::-webkit-scrollbar]:hidden">
+          {(!isMihomo || currentPanel === 'config') && (
+            <div className={cn(tabBarSectionClass, 'bg-muted/20 py-2')}>
+              <div className="scrollbar-none overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 {isConfigsLoading ? (
                   <div className="flex gap-2">
                     {[525, 310].map((w) => (
@@ -874,8 +873,8 @@ export function ConfigPanel({
                   </Tabs>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="relative min-h-175! md:min-h-0 md:flex-1">
             {isRouterSwitching && (

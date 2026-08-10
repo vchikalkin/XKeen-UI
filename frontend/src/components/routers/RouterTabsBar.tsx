@@ -20,9 +20,12 @@ import {
   routerId,
   routerLabel,
 } from '../../lib/routers'
+import { useCoreRuntimeState, showToast } from '../../lib/store'
 import { useRoutersStore } from '../../lib/routers-store'
 import { cn } from '../../lib/utils'
-import { showToast } from '../../lib/store'
+
+export const tabBarSectionClass =
+  'border-border bg-muted/30 shrink-0 border-b px-3 py-2.5 sm:px-4'
 
 function OnlineDot({ online }: { online: boolean | null }) {
   return (
@@ -35,6 +38,18 @@ function OnlineDot({ online }: { online: boolean | null }) {
       )}
       aria-hidden
     />
+  )
+}
+
+export function RouterTabsCard({ onSwitch }: { onSwitch: (id: string) => void }) {
+  const isRouterSwitching = useRoutersStore((s) => s.isSwitching)
+  const { serviceStatus } = useCoreRuntimeState()
+  const disabled = serviceStatus === 'pending' || isRouterSwitching
+
+  return (
+    <div className="border-border bg-card shrink-0 overflow-hidden rounded-xl border px-3 py-2.5 sm:px-4">
+      <RouterTabsBar onSwitch={onSwitch} disabled={disabled} />
+    </div>
   )
 }
 
