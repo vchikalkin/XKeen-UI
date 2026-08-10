@@ -81,7 +81,7 @@ export function RoutersListPanel() {
             </EmptyTitle>
           </Empty>
         ) : (
-          <div className="flex flex-wrap content-start gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {rows.map((row) => {
               const isActiveTab = row.id === activeId
               const checked = isLocal ? applyTargets.includes(row.id) : isActiveTab
@@ -90,7 +90,7 @@ export function RoutersListPanel() {
                 <div
                   key={row.id}
                   className={cn(
-                    'border-border inline-flex max-w-full items-center gap-2 rounded-lg border px-2.5 py-1.5',
+                    'border-border grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] items-center gap-x-2 rounded-lg border px-2.5 py-1.5',
                     checked ? 'bg-muted/40' : 'bg-muted/10',
                     !canToggle && !isActiveTab && 'opacity-60'
                   )}
@@ -107,17 +107,19 @@ export function RoutersListPanel() {
                     <div className="text-muted-foreground truncate text-[11px]">{row.subtitle}</div>
                   </div>
                   <CommandStatusBadge id={row.id} />
-                  {row.id !== LOCAL_ROUTER_ID && (
+                  {row.id !== LOCAL_ROUTER_ID ? (
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="text-muted-foreground hover:text-destructive -mr-1 shrink-0"
+                      className="text-muted-foreground hover:text-destructive shrink-0"
                       disabled={saving}
                       onClick={() => removeRouter(row.id)}
                       aria-label="Удалить"
                     >
                       <IconTrash className="size-4" />
                     </Button>
+                  ) : (
+                    <span className="size-8 shrink-0" aria-hidden />
                   )}
                 </div>
               )
