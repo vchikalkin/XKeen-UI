@@ -6,4 +6,4 @@
 
 ---
 
-[Релизы](https://github.com/zxc-rv/XKeen-UI/releases) · [Issues](https://github.com/zxc-rv/XKeen-UI/issues)
+[Релизы](https://github.com/vchikalkin/XKeen-UI/releases) · [Issues](https://github.com/vchikalkin/XKeen-UI/issues)

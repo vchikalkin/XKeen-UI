@@ -42,7 +42,7 @@ pub fn get_repo(core: &str) -> Option<&'static str> {
     match core {
         "xray" => Some("XTLS/Xray-core"),
         "mihomo" => Some("MetaCubeX/mihomo"),
-        "self" => Some("zxc-rv/XKeen-UI"),
+        "self" => Some("vchikalkin/XKeen-UI"),
         _ => None,
     }
 }
