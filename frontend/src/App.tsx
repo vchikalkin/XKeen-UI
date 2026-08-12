@@ -9,8 +9,7 @@ import { Toast } from './components/ui/toast'
 import { apiCall, capitalize } from './lib/api'
 import { LazyBoundary, lazyLoad, useLazyMount } from './lib/loader'
 import { ONLINE_PING_INTERVAL_MS, LOCAL_ROUTER_ID, routerId } from './lib/routers'
-import { RouterTabsCard } from './components/routers/RouterTabsBar'
-import { applyRoutersFromConfigs, refreshAllOnline } from './lib/routers-actions'
+import { applyRoutersFromSettings, refreshAllOnline } from './lib/routers-actions'
 import { useRoutersStore } from './lib/routers-store'
 import { fetchClashProxies, getAppState, syncClashApiPort, useAppActions, useModalContext, useSettings } from './lib/store'
 import { applyTheme, THEME_MEDIA_QUERY } from './lib/theme'
@@ -56,6 +55,7 @@ function settingsFromApi(data: any) {
     proxySortOrder: data.clash_api?.proxy_sort_order ?? 'default',
     timezone: data.log.timezone,
     authEnabled: !!data.auth?.enabled,
+    multiRouter: data.plugins?.multi_router ?? false,
   }
 }
 
@@ -135,6 +135,7 @@ const ModalManager = memo(function ModalManager({
 
 function AppContent({ onLogout }: { onLogout: () => void }) {
   const { dispatch, showToast } = useAppActions()
+  const multiRouter = useSettings((s) => s.multiRouter)
   const editorRef = useRef<CodeMirrorRef | null>(null)
   const configActionsRef = useRef<{ switchTab: (index: number) => void; getActiveIndex: () => number }>({
     switchTab: () => { },
@@ -166,7 +167,6 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
         })
         if (result.success && result.configs) {
           const configs: Config[] = result.configs.map((c: any) => ({ ...c, savedContent: c.content, isDirty: false }))
-          if (resolvedBase === null) applyRoutersFromConfigs(result.configs)
           dispatch({ type: 'SET_CONFIGS', configs })
           const yamlConfig = configs.find((c: any) => c.file.endsWith('/config.yaml') || c.file === 'config.yaml')
           const { port, secret, unix } = yamlConfig
@@ -252,7 +252,12 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     async (baseUrl?: string | null) => {
       const resolvedBase = baseUrl === undefined ? useRoutersStore.getState().getActiveBaseUrl() : baseUrl
       const data = await apiCall<any>('GET', 'settings', undefined, { baseUrl: resolvedBase })
-      if (data.success) dispatch({ type: 'SET_SETTINGS', settings: settingsFromApi(data) })
+      if (data.success) {
+        dispatch({ type: 'SET_SETTINGS', settings: settingsFromApi(data) })
+        if (resolvedBase === null && Array.isArray(data.plugins?.routers)) {
+          applyRoutersFromSettings(data.plugins.routers)
+        }
+      }
     },
     [dispatch]
   )
@@ -272,15 +277,32 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
     init()
   }, [checkStatus, loadConfigs, loadSettings, dispatch, showToast, checkVersion])
 
-  // Ping immediately when routers.lst appears (first mount often has an empty list).
+  useEffect(() => {
+    if (multiRouter) return
+    const { activeId, setActiveId } = useRoutersStore.getState()
+    if (activeId === LOCAL_ROUTER_ID) return
+    setActiveId(LOCAL_ROUTER_ID)
+    void (async () => {
+      try {
+        const currentCore = await checkStatus(null)
+        await loadConfigs(currentCore ?? undefined, false, true, null)
+        await loadSettings(null)
+      } catch {
+        dispatch({ type: 'SET_SERVICE_STATUS', status: 'stopped' })
+      }
+    })()
+  }, [multiRouter, checkStatus, loadConfigs, loadSettings, dispatch])
+
+  // Ping remote routers when the plugin is enabled.
   const onlineTargetsKey = useRoutersStore((s) =>
     [LOCAL_ROUTER_ID, ...s.routers.map(routerId)].join('|')
   )
   useEffect(() => {
+    if (!multiRouter) return
     void refreshAllOnline()
     const timer = setInterval(() => void refreshAllOnline(), ONLINE_PING_INTERVAL_MS)
     return () => clearInterval(timer)
-  }, [onlineTargetsKey])
+  }, [onlineTargetsKey, multiRouter])
 
   const switchRouter = useCallback(
     async (id: string) => {
@@ -481,9 +503,9 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
   )
 
   return (
-    <div className="bg-muted dark:bg-background flex min-h-dvh flex-col md:h-dvh md:max-h-dvh md:overflow-hidden">
-      <main className="flex min-h-0 flex-1 flex-col">
-        <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-3 px-3 py-3">
+    <div className="bg-muted dark:bg-background flex min-h-dvh flex-col">
+      <main className="flex flex-1 flex-col">
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-3 px-3 py-3">
           <StatusBar
             onOpenCoreManage={() => openModal('showCoreManageModal')}
             onOpenSettings={() => {
@@ -502,8 +524,8 @@ function AppContent({ onLogout }: { onLogout: () => void }) {
               openModal('showUpdateModal')
             }}
             onLogout={logout}
+            onSwitchRouter={switchRouter}
           />
-          <RouterTabsCard onSwitch={switchRouter} />
           <ConfigPanel
             editorRef={editorRef}
             configActionsRef={configActionsRef}
@@ -563,14 +585,7 @@ export default function App() {
           <Toast />
         </motion.div>
       ) : (
-        <motion.div
-          key="app"
-          className="md:h-dvh md:max-h-dvh md:overflow-hidden"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-        >
+        <motion.div key="app" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
           <AppContent onLogout={handleLogout} />
         </motion.div>
       )}
