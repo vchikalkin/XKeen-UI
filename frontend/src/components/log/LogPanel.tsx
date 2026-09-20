@@ -35,8 +35,7 @@ export function LogPanel() {
   }, [multiRouter, panelTab])
   const allRouterIds = [LOCAL_ROUTER_ID, ...routers.map(routerId)]
   const selectableRouterIds = allRouterIds.filter((id) => isRouterSelectable(id, online, auth))
-  const allRoutersSelected =
-    selectableRouterIds.length > 0 && selectableRouterIds.every((id) => applyTargets.includes(id))
+  const allRoutersSelected = selectableRouterIds.length > 0 && selectableRouterIds.every((id) => applyTargets.includes(id))
   const showSelectAllRouters = multiRouter && panelTab === 'routers' && routers.length > 0
   const showRoutersToolbar = multiRouter && panelTab === 'routers'
   const [filter, setFilter] = useState('')
@@ -439,7 +438,11 @@ export function LogPanel() {
               )}
             </div>
 
-            <TabsContent value="journal" forceMount className="relative mt-0 min-h-0 flex-1 data-[state=inactive]:hidden">
+            <TabsContent
+              value="journal"
+              forceMount={multiRouter || undefined}
+              className="relative mt-0 min-h-0 flex-1 data-[state=inactive]:hidden"
+            >
               <div className="bg-input-background absolute inset-4 overflow-hidden rounded-md border">
                 {isEmpty && (
                   <Empty className="h-full gap-0">
