@@ -439,7 +439,7 @@ export function LogPanel() {
               )}
             </div>
 
-            <TabsContent value="journal" className="relative mt-0 min-h-0 flex-1">
+            <TabsContent value="journal" forceMount className="relative mt-0 min-h-0 flex-1 data-[state=inactive]:hidden">
               <div className="bg-input-background absolute inset-4 overflow-hidden rounded-md border">
                 {isEmpty && (
                   <Empty className="h-full gap-0">
