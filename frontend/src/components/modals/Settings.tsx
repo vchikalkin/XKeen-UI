@@ -93,7 +93,7 @@ const pluginSettings: ToggleSetting[] = [
     key: 'multiRouter',
     path: 'plugins.multi_router',
     title: 'Несколько роутеров',
-    description: 'Список роутеров и массовое сохранение / применение конфигов на выбранные хосты',
+    description: 'Сохранение, применение и бэкап конфигов на выбранные роутеры',
   },
 ]
 
