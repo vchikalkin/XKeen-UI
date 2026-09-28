@@ -458,7 +458,7 @@ export function RouteTesterModal() {
               }}
               placeholder={'Цель на строку, например:\nyoutube.com\n1.1.1.1\nhttps://example.com:8443/path'}
               aria-label="Список целей для проверки маршрута"
-              className="min-h-24 resize-y text-[13px]!"
+              className="min-h-24 max-h-[18rem] resize-y text-[13px]!"
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className={cn('text-muted-foreground text-xs', overLimit && 'text-destructive')}>
